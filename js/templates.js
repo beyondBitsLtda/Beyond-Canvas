@@ -13,11 +13,65 @@
 
    O template 'welcome' é especial: tem `internal: true` e NÃO aparece
    no picker normal. Só é semeado explicitamente pelo seed da primeira
-   visita em app.js.
+   visita em app.js. Ele também escreve uma frase manuscrita direto no
+   #world como decoração — NÃO persiste, NÃO é card, NÃO aparece no
+   mini-mapa. Some na primeira interação real do usuário.
    ════════════════════════════════════════════════════════════════════ */
 
 import { createCard }  from './cards.js';
 import { createFrame } from './storyboard.js';
+
+/* ────────────────────────────────────────────────────────────────────
+   Frase manuscrita no quadro (decorativa, não-persistente)
+   ────────────────────────────────────────────────────────────────────
+   Posicionamento: coordenadas calculadas para ficar centralizada
+   horizontalmente entre as 3 colunas do welcome (col1 começa em x=80,
+   col3 termina em ~x=1170), e verticalmente acima dos cards (y<0
+   coloca acima de y=80 onde os cards começam).
+
+   Some quando: usuário move um card, cria algo, ou interage com pan
+   real. Flag whiteboard:welcome-shown garante "uma vez na vida".
+──────────────────────────────────────────────────────────────────── */
+
+function paintWelcomeMessage() {
+  // Se já foi mostrada e dispensada uma vez, não recriar.
+  if (localStorage.getItem('whiteboard:welcome-shown') === '1') return;
+
+  const world = document.getElementById('world');
+  if (!world) return;
+
+  // Evita duplicação se seedTemplate('welcome') rodar mais de uma vez.
+  if (world.querySelector('.canvas-watermark')) return;
+
+  const watermark = document.createElement('div');
+  watermark.className = 'canvas-watermark';
+  watermark.textContent = 'Bem-vindo ao mundo das ideias';
+  // Coordenadas do mundo: centraliza acima dos cards do welcome.
+  // Os cards ocupam de x=80 até ~x=1170, centro em ~625.
+  // Usamos translateX(-50%) no CSS para centralizar a partir de left.
+  watermark.style.left = '625px';
+  watermark.style.top  = '-40px';
+  watermark.setAttribute('aria-hidden', 'true');
+  world.appendChild(watermark);
+
+  // Some na primeira interação significativa.
+  const dismiss = () => {
+    if (!watermark.isConnected) return;
+    watermark.classList.add('is-leaving');
+    localStorage.setItem('whiteboard:welcome-shown', '1');
+    setTimeout(() => watermark.remove(), 800);
+    document.removeEventListener('cardmoved', dismiss);
+    world.removeEventListener('input', dismiss, true);
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (e) => {
+    // Qualquer tecla útil (não modificador puro) dispensa.
+    if (e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace') dismiss();
+  };
+  document.addEventListener('cardmoved', dismiss);
+  world.addEventListener('input', dismiss, true);   // edição em qualquer card
+  document.addEventListener('keydown', onKey);
+}
 
 const TEMPLATES = {
   welcome: {
@@ -26,13 +80,15 @@ const TEMPLATES = {
     icon: '◍',
     internal: true,
     seed() {
+      paintWelcomeMessage();
+
       // ── Coluna 1: boas-vindas + navegação + atalhos ─────────────
       createCard({
         type: 'note', x: 80, y: 80, width: 320, silent: true,
         content:
-`Bem-vindo ao Canvas.
+`Este é o seu Canvas.
 
-Este é um quadro branco infinito para planejar, esboçar e organizar ideias. Tudo o que você criar é salvo automaticamente no seu navegador.
+Um quadro branco infinito para planejar, esboçar e organizar ideias. Tudo o que você criar é salvo automaticamente no seu navegador.
 
 Este canvas inicial é seu — explore os cards abaixo, edite, mova, apague o que não usar.`,
       });
