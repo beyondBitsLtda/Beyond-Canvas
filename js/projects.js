@@ -1,10 +1,8 @@
 /* ════════════════════════════════════════════════════════════════════
    projects.js — Projetos = canvases independentes
    ────────────────────────────────────────────────────────────────────
-   Mudança da Fase 5: o conceito de "projeto" deixa de ser um rótulo no
-   mesmo canvas infinito e passa a ser um CONTEXTO completamente
-   SEPARADO — cada projeto é um canvas próprio, com seu estado isolado
-   (cards, desenho, pan/zoom).
+   Cada projeto é um canvas próprio, com estado isolado (cards, desenho,
+   pan/zoom) no localStorage.
 
    Layout no localStorage:
      · whiteboard:projects        → índice [{ id, name }, ...]
@@ -20,9 +18,6 @@
      3. Se escolher, criamos um projeto novo, registramos a chave do
         seed em whiteboard:seed:<novoId>, marcamos como ativo, reload.
      4. app.js consome a chave após o restore e aplica o seed.
-
-   Migração suave: se existir o antigo whiteboard:v1 sem índice, ele é
-   movido para o primeiro projeto criado automaticamente.
 
    Troca de projeto = location.reload() (após flush do canvas atual).
    ════════════════════════════════════════════════════════════════════ */
@@ -54,7 +49,6 @@ function bootstrap() {
   if (!list) {
     const id = uid();
     list = [{ id, name: 'Canvas 1' }];
-    // Migra dados antigos do canvas único, se existirem.
     const oldData = localStorage.getItem('whiteboard:v1');
     if (oldData) {
       localStorage.setItem(DATA_PREFIX + id, oldData);
@@ -73,8 +67,6 @@ function bootstrap() {
 
 const ACTIVE_AT_BOOT = bootstrap();
 
-/* API consumida pelo persistence.js. O KEY é fixo durante a sessão —
-   trocar de projeto exige reload (e flush antes). */
 export function getActiveStorageKey() { return DATA_PREFIX + ACTIVE_AT_BOOT; }
 export function getActiveId()         { return ACTIVE_AT_BOOT; }
 
@@ -84,19 +76,24 @@ export function getActiveId()         { return ACTIVE_AT_BOOT; }
    Exposta como window.__createProjectWithTemplate para que search.js
    possa chamar do Cmd+K. Também usada internamente pelo botão
    "+ novo canvas" do painel.
-
-   `templateKey` opcional: se omitido, abre o picker. Se for 'blank'
-   ou inexistente, nenhum seed é registrado (canvas vazio).
    ──────────────────────────────────────────────────────────────────── */
 
 async function createProjectWithTemplate(templateKey) {
+  console.log('[projects] createProjectWithTemplate chamado, templateKey=', templateKey);
+
   let key = templateKey;
   if (key === undefined) {
-    key = await pickTemplate({ title: 'novo canvas' });
-    if (!key) return null;          // cancelado
+    console.log('[projects] abrindo picker de templates...');
+    try {
+      key = await pickTemplate({ title: 'novo canvas' });
+    } catch (e) {
+      console.error('[projects] pickTemplate falhou:', e);
+      return null;
+    }
+    console.log('[projects] picker resolveu com:', key);
+    if (!key) return null;
   }
 
-  // Flush do canvas atual antes de criar o próximo.
   try { window.__flushPersistence?.(); } catch {}
 
   const list = loadIndex() || [];
@@ -105,11 +102,11 @@ async function createProjectWithTemplate(templateKey) {
   saveIndex(list);
   localStorage.setItem(ACTIVE_KEY, id);
 
-  // Registra seed pendente APENAS se não for "em branco".
   if (key && key !== 'blank') {
     localStorage.setItem(SEED_PREFIX + id, key);
   }
 
+  console.log('[projects] novo canvas criado, id=', id, 'recarregando...');
   location.reload();
   return id;
 }
@@ -134,8 +131,6 @@ if (trigger) {
   panel.className = 'projects-panel';
   panel.hidden = true;
   document.body.appendChild(panel);
-
-  /* ───── Operações ───── */
 
   function switchTo(id) {
     if (id === ACTIVE_AT_BOOT) return close();
@@ -167,8 +162,6 @@ if (trigger) {
     saveIndex(list);
     if (id === ACTIVE_AT_BOOT) updateTitle();
   }
-
-  /* ───── Render ───── */
 
   function render() {
     const list = loadIndex() || [];
@@ -216,22 +209,33 @@ if (trigger) {
       listEl.appendChild(item);
     });
 
-    /* ─── BUG FIX: ordem correta ao clicar "novo canvas" ───
-       Antes: close() do painel + chamada async ao picker.
-              O listener global de pointerdown disparava no clique
-              dentro do modal e tentava re-fechar o painel já fechado;
-              em alguns casos a propagação chegava no overlay com o
-              modal ainda renderizando, dando aparência de "nada acontece".
-
-       Agora: 1) fechamos o painel,
-              2) em microtask (ou seja, depois do clique propagar),
-                 chamamos o picker. Isso evita race com o listener
-                 global e garante que o modal abra limpo.            */
-    panel.querySelector('.projects-panel__new').addEventListener('click', (e) => {
-      e.stopPropagation();
-      close();
-      queueMicrotask(() => createProjectWithTemplate());
-    });
+    /* ─── Handler do botão "novo canvas" ───
+       Precauções (acumuladas dos bugs anteriores):
+         1. stopPropagation no pointerdown: evita que o listener global
+            de fechamento do painel dispare antes do click handler.
+         2. stopPropagation no click: idem.
+         3. close() do painel antes de abrir picker.
+         4. queueMicrotask: garante que o pointerdown atual já propagou
+            antes de criar o overlay do picker.
+         5. .catch para que rejeições da Promise apareçam no console.
+       Se nada disto funcionar, o log abaixo vai identificar onde para. */
+    const newBtn = panel.querySelector('.projects-panel__new');
+    if (!newBtn) {
+      console.error('[projects] botão .projects-panel__new não encontrado!');
+    } else {
+      newBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[projects] botão "novo canvas" clicado');
+        close();
+        queueMicrotask(() => {
+          createProjectWithTemplate().catch((err) =>
+            console.error('[projects] createProjectWithTemplate erro:', err)
+          );
+        });
+      });
+    }
   }
 
   function startRename(nameEl, id) {
@@ -254,8 +258,6 @@ if (trigger) {
     });
   }
 
-  /* ───── Open / close ───── */
-
   function open() {
     render();
     panel.hidden = false;
@@ -272,12 +274,11 @@ if (trigger) {
 
   trigger.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
 
-  /* ─── BUG FIX: ignorar cliques quando o picker de template está aberto ───
-     O picker é um .modal-overlay irmão do painel; sem essa guarda,
-     o clique dentro do modal fechava o painel E o próprio modal
-     consumia o foco esquisito.                                        */
+  /* Listener global para fechar painel ao clicar fora.
+     Guarda 1: não fecha se há modal-overlay aberto (picker visível).
+     Guarda 2: ignora cliques dentro do próprio painel ou no trigger.   */
   document.addEventListener('pointerdown', (e) => {
-    if (document.querySelector('.modal-overlay')) return;   // modal ativo: ignorar
+    if (document.querySelector('.modal-overlay')) return;
     if (panel.hidden) return;
     if (panel.contains(e.target)) return;
     if (e.target === trigger || trigger.contains(e.target)) return;
