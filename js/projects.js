@@ -229,11 +229,17 @@ if (trigger) {
         e.stopPropagation();
         console.log('[projects] botão "novo canvas" clicado');
         close();
-        queueMicrotask(() => {
+        /* setTimeout 16ms (≈1 frame) em vez de queueMicrotask:
+           microtask roda ANTES do navegador processar o ciclo de
+           eventos pendentes, então o pointerdown global ainda chega
+           depois e detecta o modal recém-criado. Com 1 frame de
+           atraso garantimos que todos os pointer events do clique
+           atual já foram consumidos.                                */
+        setTimeout(() => {
           createProjectWithTemplate().catch((err) =>
             console.error('[projects] createProjectWithTemplate erro:', err)
           );
-        });
+        }, 16);
       });
     }
   }
