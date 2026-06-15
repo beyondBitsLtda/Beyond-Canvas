@@ -139,8 +139,6 @@ if (trigger) {
 
   function switchTo(id) {
     if (id === ACTIVE_AT_BOOT) return close();
-    // Flush em memória antes de trocar — caso contrário o próximo boot
-    // perde alterações pendentes do debounce.
     try { window.__flushPersistence?.(); } catch {}
     localStorage.setItem(ACTIVE_KEY, id);
     location.reload();
@@ -148,11 +146,11 @@ if (trigger) {
 
   function deleteProject(id) {
     const list = loadIndex() || [];
-    if (list.length <= 1) return;          // sempre ao menos 1 projeto
+    if (list.length <= 1) return;
     const next = list.filter(p => p.id !== id);
     saveIndex(next);
     localStorage.removeItem(DATA_PREFIX + id);
-    localStorage.removeItem(SEED_PREFIX + id);   // limpa seed órfão se houver
+    localStorage.removeItem(SEED_PREFIX + id);
     if (id === ACTIVE_AT_BOOT) {
       localStorage.setItem(ACTIVE_KEY, next[0].id);
       location.reload();
@@ -218,9 +216,21 @@ if (trigger) {
       listEl.appendChild(item);
     });
 
-    panel.querySelector('.projects-panel__new').addEventListener('click', () => {
+    /* ─── BUG FIX: ordem correta ao clicar "novo canvas" ───
+       Antes: close() do painel + chamada async ao picker.
+              O listener global de pointerdown disparava no clique
+              dentro do modal e tentava re-fechar o painel já fechado;
+              em alguns casos a propagação chegava no overlay com o
+              modal ainda renderizando, dando aparência de "nada acontece".
+
+       Agora: 1) fechamos o painel,
+              2) em microtask (ou seja, depois do clique propagar),
+                 chamamos o picker. Isso evita race com o listener
+                 global e garante que o modal abra limpo.            */
+    panel.querySelector('.projects-panel__new').addEventListener('click', (e) => {
+      e.stopPropagation();
       close();
-      createProjectWithTemplate();    // abre picker
+      queueMicrotask(() => createProjectWithTemplate());
     });
   }
 
@@ -261,9 +271,17 @@ if (trigger) {
   function toggle() { panel.hidden ? open() : close(); }
 
   trigger.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+
+  /* ─── BUG FIX: ignorar cliques quando o picker de template está aberto ───
+     O picker é um .modal-overlay irmão do painel; sem essa guarda,
+     o clique dentro do modal fechava o painel E o próprio modal
+     consumia o foco esquisito.                                        */
   document.addEventListener('pointerdown', (e) => {
-    if (!panel.hidden && !panel.contains(e.target) && e.target !== trigger
-        && !trigger.contains(e.target)) close();
+    if (document.querySelector('.modal-overlay')) return;   // modal ativo: ignorar
+    if (panel.hidden) return;
+    if (panel.contains(e.target)) return;
+    if (e.target === trigger || trigger.contains(e.target)) return;
+    close();
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 }
