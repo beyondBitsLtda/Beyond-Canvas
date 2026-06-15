@@ -1351,21 +1351,125 @@ body.is-storyboard .card__frame-count { color: var(--accent); }
 
 
 /* ════════════════════════════════════════════════════════════════════
-   WATERMARK MANUSCRITO — Frase de boas-vindas escrita "no quadro"
+   MODAL DE TEMPLATES — picker "novo canvas"
    ────────────────────────────────────────────────────────────────────
-   Vive dentro do #world, então herda o transform de pan/zoom — escala
-   junto com o conteúdo, como se estivesse escrita no próprio quadro.
-   Não é um card: pointer-events: none garante que não intercepta
-   cliques de pan ou desenho. Centralizada via translateX(-50%) a partir
-   do `left` setado em JS pelo template welcome.
+   Estas classes estavam FALTANDO. Sem elas, pickTemplate() criava o
+   overlay no DOM mas ele ficava invisível (sem posição/fundo/z-index),
+   dando a impressão de que "nada acontecia" ao clicar em novo canvas.
+   ════════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 26, 24, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  padding: 24px;
+}
+.modal-overlay.is-visible { opacity: 1; }
+.modal-overlay.is-leaving { opacity: 0; }
+
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(26, 26, 24, 0.22), 0 4px 12px rgba(26, 26, 24, 0.10);
+  max-width: 640px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+  transform: translateY(8px) scale(0.98);
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.modal-overlay.is-visible .modal { transform: translateY(0) scale(1); }
+
+.modal__head { margin-bottom: 20px; }
+.modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 4px;
+  letter-spacing: 0.01em;
+}
+.modal__subtitle {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.modal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.1s ease;
+  font-family: var(--font-sans);
+}
+.template-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-2px);
+}
+.template-card__icon {
+  font-size: 22px;
+  color: var(--accent);
+  line-height: 1;
+}
+.template-card__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.template-card__desc {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.modal__foot {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+.modal__cancel {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.modal__cancel:hover { background: var(--bg); color: var(--ink); }
+
+/* ════════════════════════════════════════════════════════════════════
+   WATERMARK MANUSCRITO — frase de boas-vindas escrita "no quadro"
    ════════════════════════════════════════════════════════════════════ */
 .canvas-watermark {
   position: absolute;
   transform: translateX(-50%);
   pointer-events: none;
   user-select: none;
-  /* Cadeia de fallback: se uma fonte não carregar (rede corporativa,
-     bloqueio CDN), tenta a próxima. cursive nativa do SO por último. */
   font-family: 'Homemade Apple', 'Caveat', 'Kalam', 'Bradley Hand', 'Brush Script MT', cursive;
   font-size: 56px;
   line-height: 1.1;
