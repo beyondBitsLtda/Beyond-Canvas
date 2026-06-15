@@ -6,19 +6,110 @@
    sabe nada sobre persistência: roda no boot DEPOIS do restore, e
    o autosave do persistence pega o estado resultante normalmente.
 
-   Templates ficam disponíveis em DOIS pontos:
-     1. Ao criar um canvas novo (projects.js abre o picker).
-     2. Via Cmd+K → "ações" no search palette.
+   Templates ficam disponíveis em TRÊS pontos:
+     1. No onboarding (primeira visita ever): template 'welcome'.
+     2. Ao criar um canvas novo (projects.js abre o picker).
+     3. Via Cmd+K → "ações" no search palette.
 
-   O contrato com projects.js é via localStorage:
-     · whiteboard:seed:<projectId> = "<templateKey>"
-   Setamos antes do reload; app.js lê e dispara após o restore.
+   O template 'welcome' é especial: tem `internal: true` e NÃO aparece
+   no picker normal. Só é semeado explicitamente pelo seed da primeira
+   visita em app.js.
    ════════════════════════════════════════════════════════════════════ */
 
 import { createCard }  from './cards.js';
 import { createFrame } from './storyboard.js';
 
 const TEMPLATES = {
+  welcome: {
+    name: 'Boas-vindas',
+    description: 'Tour interativo das principais funcionalidades.',
+    icon: '◍',
+    internal: true,
+    seed() {
+      // ── Coluna 1: boas-vindas + navegação + atalhos ─────────────
+      createCard({
+        type: 'note', x: 80, y: 80, width: 320, silent: true,
+        content:
+`Bem-vindo ao Canvas.
+
+Este é um quadro branco infinito para planejar, esboçar e organizar ideias. Tudo o que você criar é salvo automaticamente no seu navegador.
+
+Este canvas inicial é seu — explore os cards abaixo, edite, mova, apague o que não usar.`,
+      });
+
+      createCard({
+        type: 'note', x: 80, y: 320, width: 320, silent: true,
+        content:
+`COMO NAVEGAR
+
+• Arraste o fundo para mover o quadro
+• Use o scroll do mouse para dar zoom
+• Botão direito em qualquer lugar abre o menu de criação
+• Tecla 0 volta ao centro
+• O mini-mapa no canto inferior direito mostra tudo`,
+      });
+
+      createCard({
+        type: 'note', x: 80, y: 580, width: 320, silent: true,
+        content:
+`ATALHOS RÁPIDOS
+
+N — nova nota
+C — novo card de código
+Y — novo card de YouTube
+P — caneta para desenho livre
+E — borracha
+Cmd/Ctrl + K — busca rápida e ações`,
+      });
+
+      // ── Coluna 2: tipos de card + exemplo de código ─────────────
+      createCard({
+        type: 'note', x: 460, y: 80, width: 300, silent: true,
+        content:
+`TIPOS DE CARD
+
+Você pode criar notas (como esta), snippets de código com syntax highlighting, imagens (arraste arquivos para o quadro), vídeos do YouTube, gravações de áudio e vídeo.
+
+Tudo pelo clique direito ou pelo menu Cmd+K.`,
+      });
+
+      createCard({
+        type: 'code', x: 460, y: 340, width: 360, silent: true,
+        language: 'javascript',
+        content:
+`// Card de código: edite, copie, troque a linguagem
+// no seletor acima. Útil para snippets, regras de
+// negócio ou esboços rápidos.
+
+function bemVindo(nome) {
+  return \`olá, \${nome} — bom canvas\`;
+}
+
+console.log(bemVindo('Brayan'));`,
+      });
+
+      createCard({
+        type: 'note', x: 460, y: 620, width: 360, silent: true,
+        content:
+`MAIS RECURSOS
+
+• Projetos: cada canvas é separado. Crie quantos quiser pelo botão "projetos" no topo.
+
+• Smart Stickers: ícones com comportamento (pulse, sparkle) pelo botão "stickers".
+
+• Templates: comece um novo canvas a partir de um modelo pronto (briefing, retrospectiva, storyboard).
+
+Quando estiver pronto, apague estes cards e comece o seu trabalho.`,
+      });
+
+      // ── Coluna 3: frame de storyboard com instruções ────────────
+      createFrame({
+        x: 880, y: 80, ratio: '9:16',
+        label: 'FRAMES DE STORYBOARD\n\nArraste cards para dentro de um frame e eles ficam contidos. Útil para planejar cenas, telas ou etapas de um processo.\n\nUse o botão "storyboard" no topo para entrar no modo apresentação com fly-through entre frames.',
+      });
+    },
+  },
+
   blank: {
     name: 'Em branco',
     description: 'Comece do zero.',
@@ -137,10 +228,14 @@ console.log(hello('mundo'));`,
   },
 };
 
+/** Lista templates VISÍVEIS no picker (exclui os internos como 'welcome'). */
 export function listTemplates() {
-  return Object.entries(TEMPLATES).map(([key, t]) => ({ key, ...t }));
+  return Object.entries(TEMPLATES)
+    .filter(([, t]) => !t.internal)
+    .map(([key, t]) => ({ key, ...t }));
 }
 
+/** Aplica um template no canvas atual. Aceita inclusive os internos. */
 export function seedTemplate(key) {
   const t = TEMPLATES[key];
   if (!t) return false;

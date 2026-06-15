@@ -7,9 +7,19 @@
    (cards, desenho, pan/zoom).
 
    Layout no localStorage:
-     · whiteboard:projects   → índice [{ id, name }, ...]
-     · whiteboard:active     → id do projeto ativo
-     · whiteboard:v1:<id>    → estado completo daquele canvas
+     · whiteboard:projects        → índice [{ id, name }, ...]
+     · whiteboard:active          → id do projeto ativo
+     · whiteboard:v1:<id>         → estado completo daquele canvas
+     · whiteboard:seed:<id>       → template a aplicar no próximo boot
+                                    (consumido por app.js)
+
+   Fluxo "novo canvas com template":
+     1. Usuário clica "+ novo canvas" no painel OU usa Cmd+K → "Novo
+        canvas a partir de template".
+     2. Picker de templates abre. Se cancelar, nada acontece.
+     3. Se escolher, criamos um projeto novo, registramos a chave do
+        seed em whiteboard:seed:<novoId>, marcamos como ativo, reload.
+     4. app.js consome a chave após o restore e aplica o seed.
 
    Migração suave: se existir o antigo whiteboard:v1 sem índice, ele é
    movido para o primeiro projeto criado automaticamente.
@@ -17,9 +27,12 @@
    Troca de projeto = location.reload() (após flush do canvas atual).
    ════════════════════════════════════════════════════════════════════ */
 
+import { pickTemplate } from './templates.js';
+
 const INDEX_KEY   = 'whiteboard:projects';
 const ACTIVE_KEY  = 'whiteboard:active';
 const DATA_PREFIX = 'whiteboard:v1:';
+const SEED_PREFIX = 'whiteboard:seed:';
 
 const uid = () => 'p_' + Math.random().toString(36).slice(2, 9);
 
@@ -66,6 +79,44 @@ export function getActiveStorageKey() { return DATA_PREFIX + ACTIVE_AT_BOOT; }
 export function getActiveId()         { return ACTIVE_AT_BOOT; }
 
 /* ────────────────────────────────────────────────────────────────────
+   API global — criar projeto com template
+   ────────────────────────────────────────────────────────────────────
+   Exposta como window.__createProjectWithTemplate para que search.js
+   possa chamar do Cmd+K. Também usada internamente pelo botão
+   "+ novo canvas" do painel.
+
+   `templateKey` opcional: se omitido, abre o picker. Se for 'blank'
+   ou inexistente, nenhum seed é registrado (canvas vazio).
+   ──────────────────────────────────────────────────────────────────── */
+
+async function createProjectWithTemplate(templateKey) {
+  let key = templateKey;
+  if (key === undefined) {
+    key = await pickTemplate({ title: 'novo canvas' });
+    if (!key) return null;          // cancelado
+  }
+
+  // Flush do canvas atual antes de criar o próximo.
+  try { window.__flushPersistence?.(); } catch {}
+
+  const list = loadIndex() || [];
+  const id = uid();
+  list.push({ id, name: `Canvas ${list.length + 1}` });
+  saveIndex(list);
+  localStorage.setItem(ACTIVE_KEY, id);
+
+  // Registra seed pendente APENAS se não for "em branco".
+  if (key && key !== 'blank') {
+    localStorage.setItem(SEED_PREFIX + id, key);
+  }
+
+  location.reload();
+  return id;
+}
+
+window.__createProjectWithTemplate = createProjectWithTemplate;
+
+/* ────────────────────────────────────────────────────────────────────
    UI — painel "projetos" no HUD
    ──────────────────────────────────────────────────────────────────── */
 
@@ -95,20 +146,13 @@ if (trigger) {
     location.reload();
   }
 
-  function createProject() {
-    const list = loadIndex() || [];
-    const id = uid();
-    list.push({ id, name: `Canvas ${list.length + 1}` });
-    saveIndex(list);
-    switchTo(id);
-  }
-
   function deleteProject(id) {
     const list = loadIndex() || [];
     if (list.length <= 1) return;          // sempre ao menos 1 projeto
     const next = list.filter(p => p.id !== id);
     saveIndex(next);
     localStorage.removeItem(DATA_PREFIX + id);
+    localStorage.removeItem(SEED_PREFIX + id);   // limpa seed órfão se houver
     if (id === ACTIVE_AT_BOOT) {
       localStorage.setItem(ACTIVE_KEY, next[0].id);
       location.reload();
@@ -160,7 +204,6 @@ if (trigger) {
         switchTo(p.id);
       });
 
-      // Duplo-clique no nome renomeia.
       nameEl.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         startRename(nameEl, p.id);
@@ -175,13 +218,15 @@ if (trigger) {
       listEl.appendChild(item);
     });
 
-    panel.querySelector('.projects-panel__new').addEventListener('click', createProject);
+    panel.querySelector('.projects-panel__new').addEventListener('click', () => {
+      close();
+      createProjectWithTemplate();    // abre picker
+    });
   }
 
   function startRename(nameEl, id) {
     nameEl.contentEditable = 'true';
     nameEl.focus();
-    // Seleciona todo o conteúdo para reescrita rápida.
     const range = document.createRange();
     range.selectNodeContents(nameEl);
     const sel = window.getSelection();
