@@ -1364,7 +1364,9 @@ body.is-storyboard .card__frame-count { color: var(--accent); }
   transform: translateX(-50%);
   pointer-events: none;
   user-select: none;
-  font-family: 'Homemade Apple', cursive;
+  /* Cadeia de fallback: se uma fonte não carregar (rede corporativa,
+     bloqueio CDN), tenta a próxima. cursive nativa do SO por último. */
+  font-family: 'Homemade Apple', 'Caveat', 'Kalam', 'Bradley Hand', 'Brush Script MT', cursive;
   font-size: 56px;
   line-height: 1.1;
   color: rgba(26, 26, 24, 0.72);
