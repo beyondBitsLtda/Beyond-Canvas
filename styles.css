@@ -1,0 +1,1351 @@
+/* ════════════════════════════════════════════════════════════════════
+   WHITEBOARD CRIATIVO INFINITO — Folha de estilo (Fase 1)
+   Filosofia: ultra-clean, foco no conteúdo. Nada na tela compete com
+   a ideia do usuário. Cores quentes-neutras; um único accent muito sutil.
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Paleta — off-whites quentes, tipo papel. Sem azuis frios de SaaS. */
+  --bg:            #f6f5f1;          /* papel */
+  --bg-elevated:   #fdfcf9;          /* card */
+  --ink:           #1a1a18;          /* tinta */
+  --ink-soft:      #6b6a64;          /* meia-tinta */
+  --ink-faint:     #b8b6ad;          /* dica */
+  --line:          #e7e5dd;          /* divisória */
+  --dot:           #d8d5cb;          /* dot grid (quase invisível) */
+  --accent:        oklch(0.55 0.17 295);  /* roxo — um único accent */
+  --accent-soft:   oklch(0.55 0.17 295 / 0.10);
+
+  /* Tipografia */
+  --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Sombras — discretas, com toque quente. */
+  --shadow-card: 0 1px 2px rgba(40, 35, 25, 0.04),
+                 0 8px 24px rgba(40, 35, 25, 0.06);
+  --shadow-pop:  0 2px 4px rgba(40, 35, 25, 0.06),
+                 0 16px 40px rgba(40, 35, 25, 0.12);
+
+  /* Métricas */
+  --radius-card: 10px;
+  --radius-pop:  12px;
+}
+
+* { box-sizing: border-box; }
+
+/* Flex/inline-flex elementos ignoram [hidden] por padr\u00e3o \u2014 restaurar. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;                 /* o canvas controla todo o scroll */
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button { font-family: inherit; }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  color: var(--ink-soft);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   VIEWPORT + WORLD
+   O dot grid vive no WORLD para que escale junto com o conteúdo —
+   isso dá a sensação de "papel infinito" real, não de fundo decorativo.
+   ──────────────────────────────────────────────────────────────────── */
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  /* Cursor fica "grabbing" enquanto o usuário arrasta o canvas. */
+}
+.viewport.is-panning { cursor: grabbing; }
+.viewport.is-panning .world { pointer-events: none; } /* não interfere com cards */
+
+.world {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1px;  height: 1px;          /* o "world" é um ponto-âncora */
+  transform-origin: 0 0;
+  /* JS define: transform: translate(x px, y px) scale(z) */
+  will-change: transform;
+
+  /* Dot grid sutil. Tamanho 32px; pontos de 1.2px.
+     A cor é quase a do fundo — visível apenas como textura. */
+  background-image: radial-gradient(circle, var(--dot) 1.2px, transparent 1.3px);
+  background-size: 32px 32px;
+  background-position: 0 0;
+  /* Cobertura "infinita" pintada via outline gigantesca. */
+  box-shadow: 0 0 0 100000px var(--bg);   /* dummy: nada — usado p/ debug */
+}
+
+/* Para o dot grid cobrir toda a janela mesmo com world sendo 1×1px,
+   usamos um pseudo-elemento muito grande, ancorado em (0,0) do mundo. */
+.world::before {
+  content: "";
+  position: absolute;
+  /* Caixa enorme centrada na origem do mundo. 1 cobre praticamente tudo
+     em qualquer zoom razoável. */
+  left: -50000px;
+  top:  -50000px;
+  width:  100000px;
+  height: 100000px;
+  background: inherit;
+  background-image: radial-gradient(circle, var(--dot) 1.2px, transparent 1.3px);
+  background-size: 32px 32px;
+  background-position: 0 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   HUD — marca discreta no topo-esquerdo, controles de zoom embaixo-direita
+   ──────────────────────────────────────────────────────────────────── */
+
+.hud {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+  user-select: none;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.hud--topleft     { top: 20px;    left: 24px; }
+.hud--bottomright { bottom: 20px; right: 24px;
+                    background: var(--bg-elevated);
+                    border: 1px solid var(--line);
+                    border-radius: 999px;
+                    padding: 4px 6px;
+                    box-shadow: var(--shadow-card); }
+
+.hud__mark  { font-size: 14px; color: var(--accent); }
+.hud__title { font-weight: 500; letter-spacing: 0.01em; color: var(--ink); }
+
+.hud__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  font-size: 15px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+.hud__btn:hover { background: var(--bg); color: var(--ink); }
+.hud__btn--text { width: auto; padding: 0 10px; font-size: 12px; }
+
+.hud__zoom {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  min-width: 42px;
+  text-align: center;
+  color: var(--ink);
+}
+.hud__sep {
+  width: 1px; height: 16px;
+  background: var(--line);
+  margin: 0 2px;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   HINT — desaparece após a primeira interação
+   ──────────────────────────────────────────────────────────────────── */
+.hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 16px;
+  box-shadow: var(--shadow-card);
+  z-index: 9;
+  opacity: 1;
+  transition: opacity 600ms ease 200ms;
+  pointer-events: none;
+}
+.hint.is-hidden { opacity: 0; }
+
+/* ────────────────────────────────────────────────────────────────────
+   CONTEXT MENU — aparece no clique direito
+   Tom de "papel elevado" para harmonizar com os cards.
+   ──────────────────────────────────────────────────────────────────── */
+
+.context-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 200px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pop);
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
+  font-size: 13px;
+  user-select: none;
+  animation: pop-in 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.96) translateY(-2px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background 80ms ease;
+}
+.context-menu__item:hover { background: var(--accent-soft); }
+.context-menu__icon {
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.context-menu__label  { flex: 1; }
+.context-menu__hint   {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.context-menu__sep {
+  height: 1px;
+  background: var(--line);
+  margin: 6px 4px;
+}
+.context-menu__banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: -2px -2px 4px;
+  background: var(--accent-soft);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.context-menu__banner::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.context-menu__header {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   CARDS — base comum
+   Cada card é absoluto no WORLD; coordenadas em "world units".
+   ──────────────────────────────────────────────────────────────────── */
+
+.card {
+  position: absolute;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  min-width: 180px;
+  max-width: 480px;
+  /* Sem transition em transform/position para não atrasar o drag. */
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+.card:hover     { box-shadow: var(--shadow-pop); }
+.card.is-active { border-color: var(--accent); box-shadow: var(--shadow-pop); }
+
+/* "Handle" superior — área de arrasto + ações */
+.card__handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 4px;
+  cursor: grab;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px dashed transparent;
+}
+.card__handle:active { cursor: grabbing; }
+.card__type-dot {
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--ink-faint);
+}
+.card__type { flex: 1; }
+.card__close {
+  appearance: none;
+  border: 0; background: transparent;
+  color: var(--ink-faint);
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+.card:hover .card__close { opacity: 1; }
+.card__close:hover { background: var(--bg); color: var(--ink); }
+
+/* ── Note Card ─────────────────────────────────────────────────────── */
+.card--note .card__type-dot { background: var(--accent); }
+
+.card__note {
+  padding: 8px 14px 14px;
+  outline: none;
+  min-height: 60px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  cursor: text;
+}
+.card__note:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+/* ── Code Card ─────────────────────────────────────────────────────── */
+.card--code              { min-width: 320px; }
+.card--code .card__type-dot { background: oklch(0.65 0.13 220); } /* tom diferente do accent */
+
+.card__code-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+}
+.card__lang {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.card__lang:hover { background: var(--bg); }
+.card__copy {
+  margin-left: auto;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.card__copy:hover { color: var(--ink); background: var(--bg); }
+
+.card__code {
+  margin: 0;
+  padding: 10px 14px 14px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+  cursor: text;
+  min-height: 60px;
+}
+.card__code:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+/* Syntax highlighting — paleta quente, baixíssimo contraste de cor.
+   Não é discoteca: é só hierarquia. */
+.tok-key     { color: oklch(0.50 0.16 280); font-weight: 500; }
+.tok-str     { color: oklch(0.55 0.12 150); }
+.tok-num     { color: oklch(0.58 0.14 60); }
+.tok-com     { color: var(--ink-faint); font-style: italic; }
+.tok-fn      { color: oklch(0.55 0.13 220); }
+.tok-punct   { color: var(--ink-soft); }
+
+/* ════════════════════════════════════════════════════════════════════
+   FASE 2 — Desenho, mídia, YouTube, áudio, vídeo
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ────────────────────────────────────────────────────────────────────
+   DRAW FAB — mirror visual da HUD de zoom no canto oposto
+   ──────────────────────────────────────────────────────────────────── */
+.draw-fab {
+  position: fixed;
+  bottom: 20px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+  z-index: 10;
+  font-size: 12px;
+  color: var(--ink-soft);
+  user-select: none;
+}
+.draw-fab__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 26px; height: 26px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+.draw-fab__btn:hover { background: var(--bg); color: var(--ink); }
+.draw-fab__btn.is-active {
+  background: var(--ink);
+  color: var(--bg-elevated);
+}
+.draw-fab__btn--text {
+  width: auto;
+  padding: 0 10px;
+  font-size: 11px;
+}
+.draw-fab__sep {
+  width: 1px; height: 16px;
+  background: var(--line);
+  margin: 0 4px;
+}
+.draw-fab__colors {
+  display: flex;
+  gap: 6px;
+  padding: 0 4px;
+  align-items: center;
+}
+.draw-fab__color {
+  appearance: none;
+  border: 1.5px solid transparent;
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  background: var(--c);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.draw-fab__color:hover { transform: scale(1.15); }
+.draw-fab__color.is-active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--bg-elevated) inset;
+}
+
+/* Seções "colors" e separator só aparecem quando uma ferramenta
+   está ativa — mantém o FAB pequeno em estado de repouso. */
+.draw-fab [data-show-when="drawing"] {
+  display: none;
+}
+.draw-fab.is-expanded [data-show-when="drawing"] {
+  display: flex;
+}
+.draw-fab.is-expanded .draw-fab__colors { display: flex; }
+
+/* Cursor + bloqueio de cards durante o desenho */
+body.is-drawing .viewport { cursor: crosshair; }
+body.is-erasing .viewport { cursor: cell; }
+body.is-drawing .card     { pointer-events: none; }
+body.is-drawing .hint     { opacity: 0; }
+
+/* Camada SVG de desenho — vetor dentro do mundo */
+.draw-layer {
+  /* presença explícita para o leitor; nada a fazer aqui */
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   DROP TARGET — feedback ao arrastar imagem do desktop
+   ──────────────────────────────────────────────────────────────────── */
+.viewport.is-drop-target::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  background: var(--accent-soft);
+  pointer-events: none;
+  z-index: 50;
+}
+.viewport.is-drop-target::before {
+  content: "solte para adicionar";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  pointer-events: none;
+  z-index: 51;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   IMAGE CARD — chrome mínimo, imagem dominante
+   ──────────────────────────────────────────────────────────────────── */
+.card--image { padding: 0; min-width: 120px; }
+.card--image .card__type-dot { background: var(--accent); }
+.card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   YOUTUBE CARD
+   ──────────────────────────────────────────────────────────────────── */
+.card--youtube { min-width: 320px; }
+.card--youtube .card__type-dot { background: oklch(0.55 0.20 25); } /* vermelho YT, dessat */
+.card__yt {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0a0a0a;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  overflow: hidden;
+}
+.card__yt-iframe {
+  width: 100%; height: 100%;
+  border: 0;
+  display: block;
+}
+.card__yt-empty {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  background:
+    radial-gradient(circle at 50% 40%, #1a1a18, #0a0a0a 70%);
+}
+.card__yt-glyph {
+  font-size: 28px;
+  opacity: 0.45;
+}
+.card__yt-input {
+  width: 80%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f0eee8;
+  outline: none;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.card__yt-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.card__yt-input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   AUDIO CARD
+   ──────────────────────────────────────────────────────────────────── */
+.card--audio .card__type-dot { background: oklch(0.65 0.13 220); }
+.card__audio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 14px;
+  color: var(--ink-soft);
+}
+.card__audio-rec {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  width: 30px; height: 30px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 120ms ease;
+  flex-shrink: 0;
+}
+.card__audio-dot {
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  background: oklch(0.55 0.20 25);
+  transition: border-radius 120ms ease, transform 120ms ease;
+}
+.card__audio-rec:hover { border-color: oklch(0.55 0.20 25); }
+.card__audio-rec.is-recording {
+  border-color: oklch(0.55 0.20 25);
+  animation: pulse-ring 1.2s infinite;
+}
+.card__audio-rec.is-recording .card__audio-dot {
+  border-radius: 2px;
+  transform: scale(0.8);
+}
+.card__audio-wave {
+  flex: 1;
+  height: 32px;
+  color: var(--ink-soft);
+}
+.card__audio-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  min-width: 32px;
+  text-align: right;
+}
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0   oklch(0.55 0.20 25 / 0.35); }
+  50%      { box-shadow: 0 0 0 6px oklch(0.55 0.20 25 / 0);    }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   VIDEO CARD
+   ──────────────────────────────────────────────────────────────────── */
+.card--video { min-width: 280px; padding: 0 0 12px; }
+.card--video .card__type-dot { background: oklch(0.55 0.20 25); }
+.card__video { padding: 0 14px; }
+.card__video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #1a1a18;
+  background-image:
+    radial-gradient(circle at 30% 35%, #2a2a26 0%, transparent 55%),
+    radial-gradient(circle at 70% 65%, #252521 0%, transparent 55%);
+}
+.card__video-noise {
+  position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.012) 0 1px,
+      transparent 1px 3px);
+  pointer-events: none;
+}
+.card__video-rec {
+  appearance: none;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  width: 48px; height: 48px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+.card__video-rec:hover { border-color: rgba(255, 255, 255, 0.7); }
+.card__video-dot {
+  width: 18px; height: 18px;
+  background: oklch(0.55 0.20 25);
+  border-radius: 999px;
+  transition: border-radius 160ms ease, transform 160ms ease;
+}
+.card__video-rec.is-recording {
+  border-color: oklch(0.55 0.20 25);
+  animation: pulse-ring 1.2s infinite;
+}
+.card__video-rec.is-recording .card__video-dot {
+  border-radius: 4px;
+  transform: scale(0.7);
+}
+.card__video-label,
+.card__video-time {
+  position: absolute;
+  bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  z-index: 1;
+}
+.card__video-label { left: 10px; }
+.card__video-time  { right: 10px; }
+
+/* Toast de confirmação para "copiar código" — discreto. */
+.toast {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+/* ════════════════════════════════════════════════════════════════════
+   FASE 3 — Storyboard, Stickers, Mini-mapa
+   ════════════════════════════════════════════════════════════════════ */
+
+/* HUD top-right — espelha a HUD bottom-right (zoom) */
+.hud--topright {
+  top: 20px;
+  right: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 6px;
+  box-shadow: var(--shadow-card);
+  gap: 2px;
+}
+.hud__count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  padding: 0 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  min-width: 0;
+}
+.hud--topright .hud__btn--text { font-size: 12px; color: var(--ink); }
+.hud--topright .hud__btn.is-active {
+  background: var(--ink);
+  color: var(--bg-elevated);
+}
+.hud--topright .hud__btn.is-playing {
+  background: oklch(0.55 0.20 25);
+  color: var(--bg-elevated);
+  animation: pulse-ring 1.2s infinite;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   FRAME CARD — moldura transúlcida
+   ──────────────────────────────────────────────────────────────────── */
+.card--frame {
+  background: rgba(253, 252, 249, 0.55);
+  backdrop-filter: blur(2px);
+  box-shadow: none;
+  border: 1px dashed rgba(107, 106, 100, 0.45);
+}
+.card--frame:hover {
+  border-color: rgba(107, 106, 100, 0.75);
+  box-shadow: var(--shadow-card);
+}
+.card--frame .card__type-dot { background: var(--ink); }
+.card--frame .card__handle   {
+  opacity: 0.55;
+}
+.card--frame:hover .card__handle { opacity: 1; }
+
+.card__frame {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 36px 14px 14px;
+  gap: 10px;
+}
+.card__frame-number {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.card__frame-ratio {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+}
+.card__frame-contents {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.card__frame-contents:empty { display: none; }
+
+/* Cards CONTIDOS num frame: posicionamento normal de fluxo,
+   largura total, chrome reduzido. Travamos com !important pq o JS
+   pode ter setado style.left/top/width antes do attach.              */
+.card__frame-contents > .card {
+  position: relative !important;
+  left: auto !important;
+  top:  auto !important;
+  width: 100% !important;
+  max-width: none;
+  min-width: 0;
+  z-index: auto !important;
+  box-shadow: none;
+  border-color: var(--line);
+}
+.card__frame-contents > .card:hover {
+  box-shadow: var(--shadow-card);
+}
+.card__frame-contents > .card.card--image {
+  /* Imagem preenche o frame em largura, altura segue proporção. */
+}
+.card__frame-contents > .card .card__close { opacity: 0; }
+.card__frame-contents > .card:hover .card__close { opacity: 1; }
+
+.card__frame-label {
+  outline: none;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  min-height: 18px;
+  cursor: text;
+  white-space: pre-wrap;
+  margin-top: auto;     /* empurra para o final do flex-column */
+  padding-top: 8px;
+  border-top: 1px dashed transparent;
+}
+.card__frame-label:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+}
+
+/* Modo storyboard ATIVO: revela numeração + dim non-frames soltos */
+body.is-storyboard .card--frame .card__frame-number { opacity: 1; }
+body.is-storyboard #world > .card:not(.card--frame) { opacity: 0.45; }
+body.is-storyboard #world > .card:not(.card--frame):hover { opacity: 0.85; }
+body.is-storyboard .draw-layer { opacity: 0.5; }
+body.is-storyboard .card--frame {
+  background: rgba(253, 252, 249, 0.7);
+  border-color: var(--accent);
+  border-style: solid;
+}
+body.is-storyboard .card--frame .card__type-dot { background: var(--accent); }
+
+/* Durante o PLAY (fly-through), bloqueia hover effects */
+body.is-playing .card { pointer-events: none; }
+body.is-playing .draw-fab,
+body.is-playing .minimap,
+body.is-playing .context-menu { opacity: 0.3; pointer-events: none; }
+
+/* Badge grande durante o play */
+.play-badge {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 22px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-mono);
+  z-index: 150;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.play-badge.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.play-badge__index {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+.play-badge__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  max-width: 360px;
+  text-align: center;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   STICKER — glifo mínimo no world
+   ──────────────────────────────────────────────────────────────────── */
+.sticker {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  cursor: grab;
+  user-select: none;
+  transition: transform 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sticker:hover { transform: scale(1.08); }
+.sticker:active { cursor: grabbing; }
+.sticker__glyph {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(40,35,25,0.10));
+}
+.sticker__close {
+  appearance: none; border: 0;
+  background: var(--bg-elevated);
+  color: var(--ink-soft);
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  position: absolute;
+  top: -4px; right: -4px;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 1;
+}
+.sticker:hover .sticker__close { opacity: 1; }
+
+/* Paleta de stickers */
+.sticker-palette {
+  position: fixed;
+  z-index: 90;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pop);
+  box-shadow: var(--shadow-pop);
+  padding: 10px;
+  width: 200px;
+  animation: pop-in 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sticker-palette__title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  padding: 0 2px 8px;
+}
+.sticker-palette__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.sticker-palette__item {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.sticker-palette__item:hover {
+  background: var(--bg);
+  border-color: var(--line);
+}
+.sticker-palette__item svg { width: 22px; height: 22px; }
+.sticker-palette__hint {
+  margin-top: 8px;
+  padding: 0 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   MINI-MAPA
+   ──────────────────────────────────────────────────────────────────── */
+.minimap {
+  position: fixed;
+  bottom: 64px;
+  right: 24px;
+  width: 184px;
+  height: 124px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card);
+  z-index: 9;
+  overflow: hidden;
+  cursor: crosshair;
+  /* dot grid sutil dentro do mapa para amarrar com a estética */
+  background-image: radial-gradient(circle, var(--dot) 0.5px, transparent 0.6px);
+  background-size: 8px 8px;
+}
+.minimap__label {
+  position: absolute;
+  top: 4px; left: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  pointer-events: none;
+  z-index: 1;
+}
+.minimap__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.minimap:hover .minimap__viewport { stroke-width: 2.5px; }
+
+/* ════════════════════════════════════════════════════════════════════
+   FASE 4 — Snap-into-frame badges + sticker behaviors
+   ════════════════════════════════════════════════════════════════════ */
+
+/* (Badge legado .card__in-frame foi removido: cards filiados agora
+   ficam visualmente dentro do frame — a contenção é a affordance.) */
+
+/* Contador no frame */
+.card__frame-count {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  text-transform: lowercase;
+}
+body.is-storyboard .card__frame-count { color: var(--accent); }
+
+/* ────────────────────────────────────────────────────────────────────
+   STICKER BEHAVIORS — animações no glifo interno
+   Motivo: a .sticker em si usa transform p/ hover. Animar o
+   .sticker__glyph evita conflito de transform.
+   ──────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .sticker--pulse .sticker__glyph {
+    animation: sticker-pulse 2.2s ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes sticker-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.12); }
+  }
+
+  .sticker--spin .sticker__glyph {
+    animation: sticker-spin 8s linear infinite;
+    transform-origin: center;
+  }
+  @keyframes sticker-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .sticker--sparkle::before,
+  .sticker--sparkle::after {
+    content: "";
+    position: absolute;
+    width: 4px; height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 0 6px oklch(0.55 0.17 295 / 0.6);
+  }
+  .sticker--sparkle::before {
+    top: -2px; right: 2px;
+    animation: sticker-sparkle 2.4s ease-in-out infinite 0s;
+  }
+  .sticker--sparkle::after {
+    bottom: 2px; left: -2px;
+    animation: sticker-sparkle 2.4s ease-in-out infinite 1.2s;
+  }
+  @keyframes sticker-sparkle {
+    0%, 100% { opacity: 0; transform: scale(0.4); }
+    40%, 60% { opacity: 0.95; transform: scale(1.3); }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PROJETO — rótulo de área (sem chrome) + painel
+   ════════════════════════════════════════════════════════════════════ */
+
+.card--project {
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  min-width: 240px;
+  transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+.card--project:hover {
+  background: var(--bg-elevated);
+  border-color: var(--line);
+  box-shadow: var(--shadow-card);
+}
+.card--project .card__handle {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.card--project:hover .card__handle { opacity: 1; }
+.card--project .card__type-dot { background: var(--accent); }
+
+.card__project {
+  padding: 0 18px 16px;
+}
+.card__project-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+  margin-top: 2px;
+}
+.card__project-name {
+  font-family: var(--font-sans);
+  font-size: 42px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+  outline: none;
+  cursor: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 200px;
+  min-height: 44px;
+}
+.card__project-name:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint);
+  font-weight: 300;
+}
+
+/* Painel "projetos" — mesma linguagem do sticker-palette */
+.projects-panel {
+  position: fixed;
+  z-index: 90;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pop);
+  box-shadow: var(--shadow-pop);
+  padding: 10px;
+  width: 260px;
+  max-height: 360px;
+  overflow-y: auto;
+  animation: pop-in 120ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.projects-panel__title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  padding: 0 2px 10px;
+}
+.projects-panel__list { display: flex; flex-direction: column; gap: 2px; }
+.projects-panel__item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: inherit;
+  color: var(--ink);
+  transition: background 80ms ease;
+}
+.projects-panel__item {
+  position: relative;
+}
+.projects-panel__item:hover { background: var(--accent-soft); }
+.projects-panel__item.is-active {
+  background: var(--accent-soft);
+}
+.projects-panel__item.is-active .projects-panel__name {
+  color: var(--accent);
+  font-weight: 500;
+}
+.projects-panel__current {
+  font-size: 8px;
+  color: var(--accent);
+  width: 10px;
+  text-align: center;
+  line-height: 1;
+}
+.projects-panel__del {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+.projects-panel__item:hover .projects-panel__del { opacity: 1; }
+.projects-panel__del:hover {
+  background: var(--bg);
+  color: oklch(0.55 0.20 25);
+}
+.projects-panel__name[contenteditable="true"] {
+  outline: none;
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin: 0 -4px;
+  cursor: text;
+}
+
+.projects-panel__new {
+  appearance: none;
+  width: 100%;
+  border: 1px dashed var(--line);
+  background: transparent;
+  border-radius: 6px;
+  padding: 9px 10px;
+  margin-top: 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.projects-panel__new:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.projects-panel__plus {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.projects-panel__index {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.projects-panel__name { flex: 1; font-size: 13px; }
+.projects-panel__name em { color: var(--ink-faint); font-style: normal; }
+.projects-panel__go {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+.projects-panel__item:hover .projects-panel__go { color: var(--accent); }
+
+.projects-panel__empty {
+  padding: 18px 10px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.projects-panel__hint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  margin-top: 6px;
+  display: block;
+}
+.projects-panel__hint strong { color: var(--ink); font-weight: 500; }
+

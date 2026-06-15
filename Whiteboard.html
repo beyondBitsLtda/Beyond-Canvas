@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Whiteboard Criativo Infinito — Fase 1</title>
+
+  <!-- Tipografia: sans neutra + mono para snippets de código.
+       Geist é discreta e moderna, sem o cansaço do Inter/Roboto. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ────────────────────────────────────────────────────────────────
+       VIEWPORT: captura pan/zoom/clique direito. É a "janela" fixa.
+       WORLD:    plano infinito que sofre translate+scale. Tudo que é
+                 conteúdo do quadro vive aqui.
+       ──────────────────────────────────────────────────────────────── -->
+  <div id="viewport" class="viewport">
+    <div id="world" class="world">
+      <!-- Cards são injetados aqui via JS -->
+    </div>
+  </div>
+
+  <!-- HUD discreto: marca + indicador de zoom. Sem barra de ferramentas. -->
+  <header class="hud hud--topleft">
+    <span class="hud__mark">◍</span>
+    <span class="hud__title">Canvas</span>
+  </header>
+
+  <!-- HUD top-right: ferramentas de modo (storyboard, stickers). -->
+  <div class="hud hud--topright">
+    <button id="sticker-toggle" class="hud__btn hud__btn--text" title="Smart stickers">
+      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" style="vertical-align:-1px;margin-right:4px;">
+        <path d="M8 1l1.9 4.3 4.6.4-3.5 3 1.1 4.5L8 11l-4.1 2.2 1.1-4.5-3.5-3 4.6-.4L8 1z" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
+      </svg>stickers</button>
+    <span class="hud__sep"></span>
+    <button id="proj-toggle" class="hud__btn hud__btn--text" title="Projetos">
+      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" style="vertical-align:-1px;margin-right:4px;">
+        <rect x="2" y="3"  width="12" height="3" rx="0.8" stroke="currentColor" stroke-width="1.2" fill="none"/>
+        <rect x="2" y="10" width="12" height="3" rx="0.8" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      </svg>projetos</button>
+    <span class="hud__sep"></span>
+    <button id="sb-toggle" class="hud__btn hud__btn--text" title="Modo Storyboard · Lente do Diretor">
+      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" style="vertical-align:-1px;margin-right:4px;">
+        <rect x="1"  y="4" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+        <rect x="9"  y="4" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+      </svg>storyboard</button>
+    <span id="sb-count" class="hud__count"></span>
+    <button id="sb-play" class="hud__btn" title="Play fly-through" hidden>
+      <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M4 2l10 6L4 14z" fill="currentColor"/></svg>
+    </button>
+  </div>
+
+  <div class="hud hud--bottomright">
+    <button id="zoom-out" class="hud__btn" title="Zoom out (−)">−</button>
+    <span id="zoom-level" class="hud__zoom">100%</span>
+    <button id="zoom-in" class="hud__btn" title="Zoom in (+)">+</button>
+    <span class="hud__sep"></span>
+    <button id="zoom-reset" class="hud__btn hud__btn--text" title="Voltar à origem (0)">Reset</button>
+  </div>
+
+  <!-- Dica contextual sutil. Some assim que o usuário interage. -->
+  <div id="hint" class="hint">
+    <kbd>clique direito</kbd> criar  ·  <kbd>arraste</kbd> mover  ·  <kbd>scroll</kbd> zoom  ·  <kbd>P</kbd> caneta  ·  <kbd>arrastar imagens</kbd> aqui
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────────
+       CONTEXT MENU: aparece no ponto exato do clique direito.
+       É preenchido por contextMenu.js a partir da lista de "tools".
+       ──────────────────────────────────────────────────────────────── -->
+  <div id="context-menu" class="context-menu" hidden>
+    <!-- Itens injetados via JS -->
+  </div>
+
+  <!-- ────────────────────────────────────────────────────────────────
+       SCRIPTS: módulos pequenos, focados, sem framework.
+       Ordem importa: canvas → cards → contextMenu → app.
+       ──────────────────────────────────────────────────────────────── -->
+  <script type="module" src="js/canvas.js"></script>
+  <script type="module" src="js/cards.js"></script>
+  <script type="module" src="js/drawing.js"></script>
+  <script type="module" src="js/media.js"></script>
+  <script type="module" src="js/storyboard.js"></script>
+  <script type="module" src="js/stickers.js"></script>
+  <script type="module" src="js/projects.js"></script>
+  <script type="module" src="js/minimap.js"></script>
+  <script type="module" src="js/contextMenu.js"></script>
+  <script type="module" src="js/persistence.js"></script>
+  <script type="module" src="js/app.js"></script>
+
+</body>
+</html>
