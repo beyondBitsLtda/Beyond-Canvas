@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <!-- Anti-cache durante desenvolvimento. Remover quando estiver estável.
+       GitHub Pages tem CDN do Fastly que cacheia ~10min; estas tags
+       NÃO controlam o CDN, mas evitam que o navegador local cacheie
+       os assets, aliviando o problema. Para forçar refresh do CDN,
+       altere a query string `?v=` nos <script> abaixo.                 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Whiteboard Criativo Infinito — Fase 1</title>
 
   <!-- Tipografia: sans neutra + mono para snippets de código.
@@ -81,17 +89,17 @@
        SCRIPTS: módulos pequenos, focados, sem framework.
        Ordem importa: canvas → cards → contextMenu → app.
        ──────────────────────────────────────────────────────────────── -->
-  <script type="module" src="js/canvas.js"></script>
-  <script type="module" src="js/cards.js"></script>
-  <script type="module" src="js/drawing.js"></script>
-  <script type="module" src="js/media.js"></script>
-  <script type="module" src="js/storyboard.js"></script>
-  <script type="module" src="js/stickers.js"></script>
-  <script type="module" src="js/projects.js"></script>
-  <script type="module" src="js/minimap.js"></script>
-  <script type="module" src="js/contextMenu.js"></script>
-  <script type="module" src="js/persistence.js"></script>
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/canvas.js?v=20251215a"></script>
+  <script type="module" src="js/cards.js?v=20251215a"></script>
+  <script type="module" src="js/drawing.js?v=20251215a"></script>
+  <script type="module" src="js/media.js?v=20251215a"></script>
+  <script type="module" src="js/storyboard.js?v=20251215a"></script>
+  <script type="module" src="js/stickers.js?v=20251215a"></script>
+  <script type="module" src="js/projects.js?v=20251215a"></script>
+  <script type="module" src="js/minimap.js?v=20251215a"></script>
+  <script type="module" src="js/contextMenu.js?v=20251215a"></script>
+  <script type="module" src="js/persistence.js?v=20251215a"></script>
+  <script type="module" src="js/app.js?v=20251215a"></script>
 
 </body>
 </html>
