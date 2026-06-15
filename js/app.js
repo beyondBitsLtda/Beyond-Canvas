@@ -3,9 +3,9 @@
    ────────────────────────────────────────────────────────────────────
    Responsabilidades MÍNIMAS:
      - Dica contextual que some na primeira interação
-     - Seed de onboarding na PRIMEIRA VISITA EVER (template 'welcome')
      - Aplicar seed pendente requisitado pelo projects.js ao criar um
        canvas novo a partir de template
+     - Seed de onboarding na PRIMEIRA VISITA EVER (template 'welcome')
    ════════════════════════════════════════════════════════════════════ */
 
 import { seedTemplate } from './templates.js';
@@ -32,16 +32,13 @@ function dismissHint() {
    do reload. Aqui, depois que o canvas (vazio) carregou, consumimos
    essa chave UMA VEZ e aplicamos o seed. Persistência captura via
    autosave normal.
-
-   Importante: roda em microtask para garantir que os outros módulos
-   (cards, frames, storyboard) já registraram seus observers.
 ────────────────────────────────────────────────────────────────── */
 
 queueMicrotask(() => {
   const seedKey = `whiteboard:seed:${getActiveId()}`;
   const pending = localStorage.getItem(seedKey);
   if (pending) {
-    localStorage.removeItem(seedKey);   // consome ANTES — não repetir nunca
+    localStorage.removeItem(seedKey);   // consome ANTES — não repetir
     try { seedTemplate(pending); } catch (e) { console.warn('seed pendente falhou', e); }
   }
 });
@@ -51,19 +48,16 @@ queueMicrotask(() => {
    ──────────────────────────────────────────────────────────────────
    Flag global `whiteboard:visited` (não por projeto). Uma vez marcado,
    o usuário nunca mais recebe o onboarding automaticamente — mesmo se
-   limpar o canvas. Para experimentar de novo, ele pode pedir o seed
-   "Boas-vindas" via Cmd+K → "Semear template no canvas atual" (após
-   removermos o filtro internal — ou seja, hoje só via console com
-   `seedTemplate('welcome')`, intencional para evitar poluição).
+   limpar o canvas.
 
-   "Limpar tudo" do persistence.js NÃO remove este flag — então uma
-   limpeza do canvas atual não traz o welcome de volta. Reset completo
-   exige limpar localStorage manualmente.
+   Para experimentar de novo (debug/dev), no console:
+     localStorage.removeItem('whiteboard:visited');
+     localStorage.removeItem('whiteboard:welcome-shown');
+     location.reload();
 ────────────────────────────────────────────────────────────────── */
 
 if (!localStorage.getItem('whiteboard:visited')) {
   localStorage.setItem('whiteboard:visited', '1');
-  // Roda em microtask pela mesma razão do seed pendente.
   queueMicrotask(() => {
     try { seedTemplate('welcome'); } catch (e) { console.warn('welcome seed falhou', e); }
   });
