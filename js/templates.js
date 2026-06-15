@@ -24,37 +24,31 @@ import { createFrame } from './storyboard.js';
 /* ────────────────────────────────────────────────────────────────────
    Frase manuscrita no quadro (decorativa, não-persistente)
    ────────────────────────────────────────────────────────────────────
-   Posicionamento: coordenadas calculadas para ficar centralizada
-   horizontalmente entre as 3 colunas do welcome (col1 começa em x=80,
-   col3 termina em ~x=1170), e verticalmente acima dos cards (y<0
-   coloca acima de y=80 onde os cards começam).
+   Vive como elemento absoluto dentro do #world, então herda o
+   transform de pan/zoom. Posicionada acima dos cards do welcome,
+   centralizada horizontalmente.
 
-   Some quando: usuário move um card, cria algo, ou interage com pan
-   real. Flag whiteboard:welcome-shown garante "uma vez na vida".
+   Some quando: usuário move um card, edita texto, ou pressiona uma
+   tecla útil. Flag whiteboard:welcome-shown garante "uma vez na vida".
 ──────────────────────────────────────────────────────────────────── */
 
 function paintWelcomeMessage() {
-  // Se já foi mostrada e dispensada uma vez, não recriar.
   if (localStorage.getItem('whiteboard:welcome-shown') === '1') return;
 
   const world = document.getElementById('world');
   if (!world) return;
 
-  // Evita duplicação se seedTemplate('welcome') rodar mais de uma vez.
-  if (world.querySelector('.canvas-watermark')) return;
+  if (world.querySelector('.canvas-watermark')) return;   // idempotência
 
   const watermark = document.createElement('div');
   watermark.className = 'canvas-watermark';
   watermark.textContent = 'Bem-vindo ao mundo das ideias';
-  // Coordenadas do mundo: centraliza acima dos cards do welcome.
-  // Os cards ocupam de x=80 até ~x=1170, centro em ~625.
-  // Usamos translateX(-50%) no CSS para centralizar a partir de left.
+  // Cards do welcome ocupam x=80 a ~x=1170. Centro em ~625.
   watermark.style.left = '625px';
   watermark.style.top  = '-40px';
   watermark.setAttribute('aria-hidden', 'true');
   world.appendChild(watermark);
 
-  // Some na primeira interação significativa.
   const dismiss = () => {
     if (!watermark.isConnected) return;
     watermark.classList.add('is-leaving');
@@ -65,11 +59,10 @@ function paintWelcomeMessage() {
     document.removeEventListener('keydown', onKey);
   };
   const onKey = (e) => {
-    // Qualquer tecla útil (não modificador puro) dispensa.
     if (e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace') dismiss();
   };
   document.addEventListener('cardmoved', dismiss);
-  world.addEventListener('input', dismiss, true);   // edição em qualquer card
+  world.addEventListener('input', dismiss, true);
   document.addEventListener('keydown', onKey);
 }
 
