@@ -1349,3 +1349,37 @@ body.is-storyboard .card__frame-count { color: var(--accent); }
 }
 .projects-panel__hint strong { color: var(--ink); font-weight: 500; }
 
+
+/* ════════════════════════════════════════════════════════════════════
+   WATERMARK MANUSCRITO — Frase de boas-vindas escrita "no quadro"
+   ────────────────────────────────────────────────────────────────────
+   Vive dentro do #world, então herda o transform de pan/zoom — escala
+   junto com o conteúdo, como se estivesse escrita no próprio quadro.
+   Não é um card: pointer-events: none garante que não intercepta
+   cliques de pan ou desenho. Centralizada via translateX(-50%) a partir
+   do `left` setado em JS pelo template welcome.
+   ════════════════════════════════════════════════════════════════════ */
+.canvas-watermark {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: none;
+  user-select: none;
+  font-family: 'Homemade Apple', cursive;
+  font-size: 56px;
+  line-height: 1.1;
+  color: rgba(26, 26, 24, 0.72);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  animation: watermark-in 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s forwards;
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.canvas-watermark.is-leaving {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+}
+@keyframes watermark-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
