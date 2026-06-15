@@ -3,11 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <!-- Anti-cache durante desenvolvimento. Remover quando estiver estável.
-       GitHub Pages tem CDN do Fastly que cacheia ~10min; estas tags
-       NÃO controlam o CDN, mas evitam que o navegador local cacheie
-       os assets, aliviando o problema. Para forçar refresh do CDN,
-       altere a query string `?v=` nos <script> abaixo.                 -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -19,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Homemade+Apple&family=Caveat:wght@400;600&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20251215b">
 </head>
 <body>
 
@@ -89,17 +84,17 @@
        SCRIPTS: módulos pequenos, focados, sem framework.
        Ordem importa: canvas → cards → contextMenu → app.
        ──────────────────────────────────────────────────────────────── -->
-  <script type="module" src="js/canvas.js?v=20251215a"></script>
-  <script type="module" src="js/cards.js?v=20251215a"></script>
-  <script type="module" src="js/drawing.js?v=20251215a"></script>
-  <script type="module" src="js/media.js?v=20251215a"></script>
-  <script type="module" src="js/storyboard.js?v=20251215a"></script>
-  <script type="module" src="js/stickers.js?v=20251215a"></script>
-  <script type="module" src="js/projects.js?v=20251215a"></script>
-  <script type="module" src="js/minimap.js?v=20251215a"></script>
-  <script type="module" src="js/contextMenu.js?v=20251215a"></script>
-  <script type="module" src="js/persistence.js?v=20251215a"></script>
-  <script type="module" src="js/app.js?v=20251215a"></script>
+  <script type="module" src="js/canvas.js?v=20251215b"></script>
+  <script type="module" src="js/cards.js?v=20251215b"></script>
+  <script type="module" src="js/drawing.js?v=20251215b"></script>
+  <script type="module" src="js/media.js?v=20251215b"></script>
+  <script type="module" src="js/storyboard.js?v=20251215b"></script>
+  <script type="module" src="js/stickers.js?v=20251215b"></script>
+  <script type="module" src="js/projects.js?v=20251215b"></script>
+  <script type="module" src="js/minimap.js?v=20251215b"></script>
+  <script type="module" src="js/contextMenu.js?v=20251215b"></script>
+  <script type="module" src="js/persistence.js?v=20251215b"></script>
+  <script type="module" src="js/app.js?v=20251215b"></script>
 
 </body>
 </html>
